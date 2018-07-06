@@ -8,6 +8,8 @@
 
 #include <iostream>
 
+#include "shader.h"
+
 typedef pcl::PointXYZ Point;
 typedef pcl::PointCloud<Point> PointCloud;
 
@@ -35,7 +37,11 @@ protected:
 
   GLFWwindow* _window;
 
-  PointCloud::Ptr _cloud;
+  Shader _shader;
+
+  std::vector<float> _vertices;
+  unsigned int _VBO;
+  unsigned int _VAO;
 
 private:
 

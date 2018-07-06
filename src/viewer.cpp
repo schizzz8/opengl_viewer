@@ -1,12 +1,13 @@
 #include "viewer.h"
 
-Viewer::Viewer(){
+Viewer::Viewer():
+  _shader("../shaders/point.vs", "../shaders/point.fs"){
   _w = 800;
   _h = 600;
 
   _window = 0;
 
-  _cloud = PointCloud::Ptr (new PointCloud);
+
 }
 
 int Viewer::init(){
@@ -48,11 +49,19 @@ bool Viewer::windowShouldClose(){
 }
 
 void Viewer::render(){
-  //rendering commands:
 
   //1) clear color buffer
   glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT);
+
+  //2) set shaders to use
+  _shader.use();
+
+  //3) bind VAO
+  glBindVertexArray(_VAO);
+
+  //4) draw
+  glDrawArrays(GL_POINTS,0,3);
 
 }
 
@@ -96,16 +105,30 @@ int Viewer::loadCloud(char *filename){
     if(point.z > max_z)
       max_z = point.z;
   }
-
   float x_range = max_x-min_x;
   float y_range = max_y-min_y;
   float z_range = max_z-min_z;
 
-  _cloud->resize(cloud_in->size());
-  for(size_t i=0; i<_cloud->size(); ++i){
+  _vertices.resize(cloud_in->size()*3);
+  for(size_t i=0; i<cloud_in->size(); ++i){
     const Point& point = cloud_in->at(i);
-    _cloud->at(i) = Point(2*(point.x-min_x)/x_range-1,2*(point.y-min_y)/y_range-1,2*(point.z-min_z)/z_range-1);
+    _vertices[3*i] = 2*(point.x-min_x)/x_range-1;
+    _vertices[3*i+1] = 2*(point.y-min_y)/y_range-1;
+    _vertices[3*i+2] = 2*(point.z-min_z)/z_range-1;
   }
+
+  //[OPENGL] create buffers
+  glGenBuffers(1, &_VBO);
+  glBindBuffer(GL_ARRAY_BUFFER, _VBO);
+  glBufferData(GL_ARRAY_BUFFER, _vertices.size()*sizeof(float), &_vertices[0], GL_STATIC_DRAW);
+
+  glGenVertexArrays(1, &_VAO);
+  glBindVertexArray(_VAO);
+
+  //[OPENGL] link vertex attributes
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+  glEnableVertexAttribArray(0);
+
 }
 
 void Viewer::framebuffer_size_callback(GLFWwindow *window, int width, int height){

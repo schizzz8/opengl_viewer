@@ -1,4 +1,5 @@
 add_executable(opengl_viewer
+  shader.h shader.cpp
   viewer.h viewer.cpp
   glad.c opengl_viewer.cpp
 )

@@ -9,6 +9,12 @@ int main(int argc, char** argv){
   //load cloud
   viewer.loadCloud(argv[1]);
 
+  //generate vertices
+//  viewer.generateVertices();
+
+  //bind buffers
+  viewer.bindBuffers();
+
   //RENDER LOOP
   while(!viewer.windowShouldClose()){
 

@@ -4,6 +4,10 @@ Viewer::Viewer(){
   _w = 800;
   _h = 600;
 
+  _model = glm::mat4(1.0f);
+  _view = glm::translate(_view, glm::vec3(0.0f, 0.0f, -5.0f));
+  _projection = glm::perspective(glm::radians(60.0f), _w/(float)_h, 0.001f, 100.0f);
+
   _window = 0;
 }
 
@@ -53,17 +57,26 @@ bool Viewer::windowShouldClose(){
 void Viewer::render(){
 
   //1) clear color buffer
-  glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT);
+  glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+  glEnable(GL_DEPTH_TEST);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   //2) set shaders to use
   _shader.use();
+
+  //3) set shaders uniform
+  int modelLoc = glGetUniformLocation(_shader.ID, "model");
+  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(_model));
+  int viewLoc = glGetUniformLocation(_shader.ID, "view");
+  glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(_view));
+  int projLoc = glGetUniformLocation(_shader.ID, "projection");
+  glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(_projection));
 
   //3) bind VAO
   glBindVertexArray(_VAO);
 
   //4) draw
-  glDrawArrays(GL_POINTS,0,3);
+  glDrawArrays(GL_POINTS,0,_num_vertices);
 
 }
 
@@ -77,47 +90,59 @@ void Viewer::terminate(){
   glfwTerminate();
 }
 
-int Viewer::loadCloud(char *filename){
+void Viewer::loadCloud(char *filename){
   //[PCL] load cloud
   PointCloud::Ptr cloud_in (new PointCloud);
   if (pcl::io::loadPCDFile<Point> (filename, *cloud_in) == -1) {
     PCL_ERROR ("Couldn't read file!\n");
-    return (-1);
+    return;
   }
 
-  //[PCL] normalize cloud
-  float min_x=std::numeric_limits<float>::max(),min_y=std::numeric_limits<float>::max(),min_z=std::numeric_limits<float>::max();
-  float max_x=-std::numeric_limits<float>::max(),max_y=-std::numeric_limits<float>::max(),max_z=-std::numeric_limits<float>::max();
+  _num_vertices = cloud_in->size();
 
-  for(size_t i=0; i<cloud_in->size(); ++i){
+  _vertices.resize(_num_vertices*6);
+  for(size_t i=0; i<_num_vertices; ++i){
     const Point& point = cloud_in->at(i);
-
-    if(point.x < min_x)
-      min_x = point.x;
-    if(point.x > max_x)
-      max_x = point.x;
-
-    if(point.y < min_y)
-      min_y = point.y;
-    if(point.y > max_y)
-      max_y = point.y;
-
-    if(point.z < min_z)
-      min_z = point.z;
-    if(point.z > max_z)
-      max_z = point.z;
+    _vertices[6*i] = point.x;
+    _vertices[6*i+1] = point.y;
+    _vertices[6*i+2] = point.z;
+    _vertices[6*i+3] = point.r/255.0f;
+    _vertices[6*i+4] = point.g/255.0f;
+    _vertices[6*i+5] = point.b/255.0f;
   }
-  float x_range = max_x-min_x;
-  float y_range = max_y-min_y;
-  float z_range = max_z-min_z;
 
-  _vertices.resize(cloud_in->size()*3);
-  for(size_t i=0; i<cloud_in->size(); ++i){
-    const Point& point = cloud_in->at(i);
-    _vertices[3*i] = 2*(point.x-min_x)/x_range-1;
-    _vertices[3*i+1] = 2*(point.y-min_y)/y_range-1;
-    _vertices[3*i+2] = 2*(point.z-min_z)/z_range-1;
-  }
+//  std::cerr << "Vertices:" << std::endl;
+//  for(size_t i=0; i<cloud_in->size(); ++i){
+//    std::cerr << _vertices[6*i] << " " << _vertices[6*i+1] << " " << _vertices[6*i+2] << " ";
+//    std::cerr << _vertices[6*i+3] << " " << _vertices[6*i+4] << " " << _vertices[6*i+5] << std::endl;
+//  }
+}
+
+void Viewer::generateVertices(){
+  _vertices.resize(18);
+  _vertices[0]=-0.5f;
+  _vertices[1]=-0.5f;
+  _vertices[2]=0.0f;
+  _vertices[3]=0.f;
+  _vertices[4]=0.f;
+  _vertices[5]=0.f;
+  _vertices[6]=0.5f;
+  _vertices[7]=-0.5f;
+  _vertices[8]=0.0f;
+  _vertices[9]=0.f;
+  _vertices[10]=0.f;
+  _vertices[11]=0.f;
+  _vertices[12]=0.0f;
+  _vertices[13]=0.5f;
+  _vertices[14]=0.0f;
+  _vertices[15]=0.f;
+  _vertices[16]=0.f;
+  _vertices[17]=0.f;
+}
+
+void Viewer::bindBuffers(){
+  if(_vertices.empty())
+    return;
 
   //[OPENGL] create buffers
   glGenBuffers(1, &_VBO);
@@ -130,7 +155,8 @@ int Viewer::loadCloud(char *filename){
   //[OPENGL] link vertex attributes
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
   glEnableVertexAttribArray(0);
-
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3* sizeof(float)));
+  glEnableVertexAttribArray(1);
 }
 
 void Viewer::framebuffer_size_callback(GLFWwindow *window, int width, int height){

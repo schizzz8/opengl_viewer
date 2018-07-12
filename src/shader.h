@@ -13,6 +13,8 @@ public:
   // the program ID
   unsigned int ID;
 
+  Shader(){}
+
   // constructor reads and builds the shader
   Shader(const GLchar* vertexPath, const GLchar* fragmentPath);
 

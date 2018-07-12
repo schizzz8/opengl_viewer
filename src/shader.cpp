@@ -40,6 +40,7 @@ Shader::Shader(const GLchar *vertexPath, const GLchar *fragmentPath){
 
   vertex = glCreateShader(GL_VERTEX_SHADER);
   glShaderSource(vertex, 1, &vShaderCode, NULL);
+
   glCompileShader(vertex);
   glGetShaderiv(vertex, GL_COMPILE_STATUS, &success);
   if(!success){

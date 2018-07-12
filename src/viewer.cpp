@@ -1,16 +1,14 @@
 #include "viewer.h"
 
-Viewer::Viewer():
-  _shader("../shaders/point.vs", "../shaders/point.fs"){
+Viewer::Viewer(){
   _w = 800;
   _h = 600;
 
   _window = 0;
-
-
 }
 
 int Viewer::init(){
+
   //[GLFW] initialize
   glfwInit();
 
@@ -37,6 +35,10 @@ int Viewer::init(){
   //[OPENGL] set viewport
   glViewport(0, 0, _w, _h);
   glfwSetFramebufferSizeCallback(_window, Viewer::framebuffer_size_callback);
+
+  //[OPENGL] create shaders
+  _shader = Shader("../shaders/point.vs", "../shaders/point.fs");
+
 }
 
 void Viewer::processInput() {

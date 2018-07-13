@@ -78,6 +78,7 @@ void Viewer::render(){
   //4) draw
   glDrawArrays(GL_POINTS,0,_num_vertices);
 
+
 }
 
 void Viewer::update(){

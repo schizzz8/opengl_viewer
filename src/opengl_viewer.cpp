@@ -7,7 +7,9 @@ int main(int argc, char** argv){
   viewer.init();
 
   //load cloud
-  viewer.loadCloud(argv[1]);
+//  viewer.loadCloud(argv[1]);
+
+  viewer.loadBox();
 
   //generate vertices
 //  viewer.generateVertices();

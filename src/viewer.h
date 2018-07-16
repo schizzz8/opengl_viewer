@@ -13,9 +13,12 @@
 #include <iostream>
 
 #include "shader.h"
+#include "camera.h"
 
 typedef pcl::PointXYZRGB Point;
 typedef pcl::PointCloud<Point> PointCloud;
+
+
 
 class Viewer{
 public:
@@ -44,6 +47,7 @@ protected:
   GLFWwindow* _window;
 
   Shader _shader;
+  Camera _camera;
 
   unsigned int _cVBO,_bVBO;
   unsigned int _cVAO,_bVAO;
@@ -55,10 +59,15 @@ protected:
 
 private:
   static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+  void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
-  void insertVertex(std::vector<float> &vertices, const Eigen::Vector3f &vertex, const Eigen::Vector3f &color);
-  void insertVertex(std::vector<float> &vertices, float x, float y, float z, float r, float g, float b);
+  bool _firstMouse;
+  float _deltaTime;
+  float _lastFrame;
+  float _lastX;
+  float _lastY;
 
   Eigen::Vector3f _min,_max;
+  void insertVertex(std::vector<float> &vertices, float x, float y, float z, float r, float g, float b);
 
 };

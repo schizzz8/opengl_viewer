@@ -12,6 +12,12 @@ Viewer::Viewer(){
   _cloud_vertices.clear();
 
   _window = 0;
+  _firstMouse = true;
+  _deltaTime = 0.0f;
+  _lastFrame = 0.0f;
+  _lastX = _w / 2.0f;
+  _lastY = _h / 2.0f;
+
 }
 
 int Viewer::init(){
@@ -43,14 +49,38 @@ int Viewer::init(){
   glViewport(0, 0, _w, _h);
   glfwSetFramebufferSizeCallback(_window, Viewer::framebuffer_size_callback);
 
+  glfwSetInputMode(_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
   //[OPENGL] create shaders
   _shader = Shader("../shaders/point.vs", "../shaders/point.fs");
+
+  //[OPENGL] create camera
+  _camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f));
 
 }
 
 void Viewer::processInput() {
+
+  float currentFrame = glfwGetTime();
+  _deltaTime = currentFrame - _lastFrame;
+  _lastFrame = currentFrame;
+
   if(glfwGetKey(_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     glfwSetWindowShouldClose(_window, true);
+
+  if (glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS)
+    _camera.ProcessKeyboard(FORWARD, _deltaTime);
+  if (glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS)
+    _camera.ProcessKeyboard(BACKWARD, _deltaTime);
+  if (glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS)
+    _camera.ProcessKeyboard(LEFT, _deltaTime);
+  if (glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS)
+    _camera.ProcessKeyboard(RIGHT, _deltaTime);
+
+  double xpos,ypos;
+  glfwGetCursorPos(_window,&xpos,&ypos);
+  mouse_callback(_window,xpos,ypos);
+
 }
 
 bool Viewer::windowShouldClose(){
@@ -77,7 +107,7 @@ void Viewer::loadCloud(char *filename){
 
   for(size_t i=0; i<cloud_in->size(); ++i){
     const Point& point = cloud_in->at(i);
-    insertVertex(_cloud_vertices,Eigen::Vector3f(point.x,point.y,point.z),Eigen::Vector3f(point.r/255.0f,point.g/255.0f,point.b/255.0f));
+    insertVertex(_cloud_vertices,point.x,point.y,point.z,point.r/255.0f,point.g/255.0f,point.b/255.0f);
   }
   _num_cloud_vertices = _cloud_vertices.size()/6.0f;
 
@@ -87,34 +117,6 @@ void Viewer::loadCloud(char *filename){
   //    std::cerr << _vertices[6*i+3] << " " << _vertices[6*i+4] << " " << _vertices[6*i+5] << std::endl;
   //  }
 }
-
-//const GLfloat data[48] = {
-//  // Loop 1: XY Z (min)
-//  aabb.mMin.x, aabb.mMin.y, aabb.mMin.z,
-//  aabb.mMax.x, aabb.mMin.y, aabb.mMin.z,
-//  aabb.mMax.x, aabb.mMax.y, aabb.mMin.z,
-//  aabb.mMin.x, aabb.mMax.y, aabb.mMin.z,
-
-//  // Loop 2: XY Z (max)
-//  aabb.mMin.x, aabb.mMin.y, aabb.mMax.z,
-//  aabb.mMax.x, aabb.mMin.y, aabb.mMax.z,
-//  aabb.mMax.x, aabb.mMax.y, aabb.mMax.z,
-//  aabb.mMin.x, aabb.mMax.y, aabb.mMax.z,
-
-//  // Lists:
-//  // 1
-//  aabb.mMin.x, aabb.mMin.y, aabb.mMin.z,
-//  aabb.mMin.x, aabb.mMin.y, aabb.mMax.z,
-//  // 2
-//  aabb.mMax.x, aabb.mMin.y, aabb.mMin.z,
-//  aabb.mMax.x, aabb.mMin.y, aabb.mMax.z,
-//  // 3
-//  aabb.mMax.x, aabb.mMax.y, aabb.mMin.z,
-//  aabb.mMax.x, aabb.mMax.y, aabb.mMax.z,
-//  // 4
-//  aabb.mMin.x, aabb.mMax.y, aabb.mMin.z,
-//  aabb.mMin.x, aabb.mMax.y, aabb.mMax.z,
-//};
 
 void Viewer::loadBox(){
   Eigen::Vector3f min(1.7921,-0.2782,0.0);
@@ -200,12 +202,13 @@ void Viewer::render(){
   _shader.use();
 
   //3) set shaders uniform
-  int modelLoc = glGetUniformLocation(_shader.ID, "model");
-  glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(_model));
-  int viewLoc = glGetUniformLocation(_shader.ID, "view");
-  glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(_view));
-  int projLoc = glGetUniformLocation(_shader.ID, "projection");
-  glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(_projection));
+
+  _projection = glm::perspective(glm::radians(_camera.Zoom), (float)_w / (float)_h, 0.1f, 100.0f);
+  _view = _camera.GetViewMatrix();
+
+  _shader.setMat4("projection",_projection);
+  _shader.setMat4("view",_view);
+  _shader.setMat4("model",_model);
 
   //3) bind cloud VAO
   //  glBindVertexArray(_cVAO);
@@ -225,15 +228,20 @@ void Viewer::framebuffer_size_callback(GLFWwindow *window, int width, int height
   glViewport(0, 0, width, height);
 }
 
-void Viewer::insertVertex(std::vector<float> &vertices,
-                          const Eigen::Vector3f &vertex,
-                          const Eigen::Vector3f &color){
-  vertices.push_back(vertex.x());
-  vertices.push_back(vertex.y());
-  vertices.push_back(vertex.z());
-  vertices.push_back(color.x());
-  vertices.push_back(color.y());
-  vertices.push_back(color.z());
+void Viewer::mouse_callback(GLFWwindow *window, double xpos, double ypos){
+  if (_firstMouse) {
+    _lastX = xpos;
+    _lastY = ypos;
+    _firstMouse = false;
+  }
+
+  float xoffset = xpos - _lastX;
+  float yoffset = _lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+  _lastX = xpos;
+  _lastY = ypos;
+
+  _camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
 void Viewer::insertVertex(std::vector<float> &vertices, float x, float y, float z, float r, float g, float b){
